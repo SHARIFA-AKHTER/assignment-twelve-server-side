@@ -25,12 +25,35 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const userCollection = client.db("ManageMate").collection("users");
+    const  requestsCollection = client.db("ManageMate").collection("requests");
+    const  extraCollection = client.db("ManageMate").collection("extra");
+
+     // users related api
+     app.get("/users", async (req, res) => {
+        const result = await userCollection.find().toArray();
+        res.send(result);
+      });
+
+       //  requests api
+       app.get("/requests", async (req, res) => {
+        const result = await requestsCollection.find().toArray();
+        res.send(result);
+      });
+
+       app.get("/extra", async (req, res) => {
+        const result = await extraCollection.find().toArray();
+        res.send(result);
+      });
+    
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
