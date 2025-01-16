@@ -31,6 +31,7 @@ async function run() {
     const  extraCollection = client.db("ManageMate").collection("extra");
     const  pendingCollection = client.db("ManageMate").collection("pending");
     const  mostRequestedCollection = client.db("ManageMate").collection("mostRequested");
+    const  limitedStockCollection = client.db("ManageMate").collection("limitedStock");
 
      // users related api
      app.get("/users", async (req, res) => {
@@ -58,6 +59,12 @@ async function run() {
       // mostRequested
        app.get("/mostRequested", async (req, res) => {
         const result = await mostRequestedCollection.find().toArray();
+        res.send(result);
+      });
+    
+      // limited stock
+       app.get("/limitedStock", async (req, res) => {
+        const result = await limitedStockCollection.find().toArray();
         res.send(result);
       });
     
