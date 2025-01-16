@@ -32,6 +32,9 @@ async function run() {
     const  pendingCollection = client.db("ManageMate").collection("pending");
     const  mostRequestedCollection = client.db("ManageMate").collection("mostRequested");
     const  limitedStockCollection = client.db("ManageMate").collection("limitedStock");
+    const  pieChartCollection = client.db("ManageMate").collection("pieChart");
+    const  birthdaysCollection = client.db("ManageMate").collection("birthdays");
+    
 
      // users related api
      app.get("/users", async (req, res) => {
@@ -65,6 +68,18 @@ async function run() {
       // limited stock
        app.get("/limitedStock", async (req, res) => {
         const result = await limitedStockCollection.find().toArray();
+        res.send(result);
+      });
+    
+      // pieChart
+       app.get("/pieChart", async (req, res) => {
+        const result = await pieChartCollection.find().toArray();
+        res.send(result);
+      });
+    
+      // birthdays
+       app.get("/birthdays", async (req, res) => {
+        const result = await birthdaysCollection.find().toArray();
         res.send(result);
       });
     
