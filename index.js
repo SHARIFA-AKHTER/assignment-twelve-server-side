@@ -3,7 +3,7 @@ const app = express();
 require('dotenv').config()
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const port = process.env.PORT || 5000
+const port = process.env.PORT || 3000
 
 //middleware
 app.use(cors());
@@ -34,6 +34,7 @@ async function run() {
     const  limitedStockCollection = client.db("ManageMate").collection("limitedStock");
     const  pieChartCollection = client.db("ManageMate").collection("pieChart");
     const  birthdaysCollection = client.db("ManageMate").collection("birthdays");
+    const  assetsCollection = client.db("ManageMate").collection("assets");
     
 
      // users related api
@@ -80,6 +81,12 @@ async function run() {
       // birthdays
        app.get("/birthdays", async (req, res) => {
         const result = await birthdaysCollection.find().toArray();
+        res.send(result);
+      });
+    
+      // assets
+       app.get("/assets", async (req, res) => {
+        const result = await assetsCollection.find().toArray();
         res.send(result);
       });
     
