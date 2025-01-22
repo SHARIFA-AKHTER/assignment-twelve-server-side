@@ -4,7 +4,7 @@ require("dotenv").config();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const port = process.env.PORT || 3000;
-const stripe= require('stripe')(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 //middleware
 app.use(cors());
@@ -30,8 +30,12 @@ async function run() {
     const requestsCollection = client.db("ManageMate").collection("requests");
     const extraCollection = client.db("ManageMate").collection("extra");
     const pendingCollection = client.db("ManageMate").collection("pending");
-    const mostRequestedCollection = client.db("ManageMate").collection("mostRequested");
-    const limitedStockCollection = client.db("ManageMate").collection("limitedStock");
+    const mostRequestedCollection = client
+      .db("ManageMate")
+      .collection("mostRequested");
+    const limitedStockCollection = client
+      .db("ManageMate")
+      .collection("limitedStock");
     const pieChartCollection = client.db("ManageMate").collection("pieChart");
     const birthdaysCollection = client.db("ManageMate").collection("birthdays");
     const assetsCollection = client.db("ManageMate").collection("assets");
@@ -70,18 +74,12 @@ async function run() {
       const result = await limitedStockCollection.find().toArray();
       res.send(result);
     });
-
-    // // pieChart
-    // app.get("/pieChart", async (req, res) => {
-    //   const result = await pieChartCollection.find().toArray();
-    //   res.send(result);
-    // });
-
+    
     app.get("/pieChart", async (req, res) => {
       try {
         console.log("Fetching data from pieChart collection...");
         const result = await pieChartCollection.find().toArray();
-        console.log("Result:", result);  
+        console.log("Result:", result);
         res.send(result);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -95,25 +93,80 @@ async function run() {
       res.send(result);
     });
 
-    // assets
-    app.get("/assets", async (req, res) => {
-      const result = await assetsCollection.find().toArray();
-      res.send(result);
+    // profile
+    app.put("/users/update-profile/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { fullName } = req.body;
+
+      try {
+        // Find the user by ID and update the fullName
+        const user = await userCollection.findOneAndUpdate(
+          { _id: userId },
+          { $set: { fullName } },
+          { new: true } 
+        );
+
+        if (!user) {
+          return res
+            .status(404)
+            .json({ success: false, message: "User not found" });
+        }
+
+        res.json({
+          success: true,
+          message: "Profile updated successfully",
+          user: {
+            id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+          },
+        });
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Internal server error" });
+      }
     });
 
-    // return
+    // Get all assets
+    app.get("/assets", async (req, res) => {
+      try {
+        const { name, status, assetType } = req.query;
+
+        // Build query based on filters
+        const query = {};
+        if (name) query.assetName = { $regex: name, $options: "i" };
+        if (status) query.status = status;
+        if (assetType) query.assetType = assetType;
+
+        const result = await assetsCollection.find(query).toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching assets", error });
+      }
+    });
+
+    // Return an asset
     app.patch("/assets/return/:id", async (req, res) => {
       const { id } = req.params;
-    
+
       try {
-        const asset = await assetsCollection.findById(id);
-    
-        if (!asset || asset.status !== "approved" || asset.assetType !== "returnable") {
+        const asset = await assetsCollection.findOne({ _id: new ObjectId(id) });
+
+        if (
+          !asset ||
+          asset.status !== "approved" ||
+          asset.assetType !== "returnable"
+        ) {
           return res.status(400).json({ message: "Cannot return this asset" });
         }
-    
+
         asset.status = "returned";
-        await asset.save();
+        await assetsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "returned" } }
+        );
         res.json({ message: "Asset returned successfully" });
       } catch (error) {
         res.status(500).json({ message: "Error returning asset", error });
@@ -125,7 +178,6 @@ async function run() {
       const { id } = req.params;
 
       try {
-        // Find the asset by ID
         const asset = await assetsCollection.findOne({ _id: new ObjectId(id) });
 
         if (!asset || asset.status !== "pending") {
@@ -150,20 +202,20 @@ async function run() {
       }
     });
 
-   //payment intent
-   app.post('/create-payment-intent', async(req, res)=>{
-    const {price} =req.body;
-    const amount = parseInt(price * 100);
+    //payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
-      currency: 'usd',
-      payment_method_types: ['card']
-    })
-    res.send({
-      clientSecret: paymentIntent.client_secret
-    })
-   })
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
