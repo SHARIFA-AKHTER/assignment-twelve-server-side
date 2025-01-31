@@ -27,6 +27,7 @@ async function run() {
     // await client.connect();
 
     const userCollection = client.db("ManageMate").collection("users");
+    const employeeCollection = client.db("ManageMate").collection("employee");
     const requestsCollection = client.db("ManageMate").collection("requests");
     const extraCollection = client.db("ManageMate").collection("extra");
     const pendingCollection = client.db("ManageMate").collection("pending");
@@ -46,6 +47,11 @@ async function run() {
       res.send(result);
     });
 
+    // Get All Employees
+    app.get('/employee', async (req, res) => {
+      const result = await employeeCollection.find().toArray();
+      res.send(result)
+    })
     //  requests api
     app.get("/requests", async (req, res) => {
       const result = await requestsCollection.find().toArray();
@@ -74,7 +80,7 @@ async function run() {
       const result = await limitedStockCollection.find().toArray();
       res.send(result);
     });
-    
+
     app.get("/pieChart", async (req, res) => {
       try {
         console.log("Fetching data from pieChart collection...");
@@ -103,7 +109,7 @@ async function run() {
         const user = await userCollection.findOneAndUpdate(
           { _id: userId },
           { $set: { fullName } },
-          { new: true } 
+          { new: true }
         );
 
         if (!user) {
@@ -219,9 +225,9 @@ async function run() {
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
