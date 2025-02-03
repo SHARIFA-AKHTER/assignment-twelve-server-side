@@ -205,7 +205,7 @@ async function run() {
       try {
         const updatedAsset = await assetsCollection.findByIdAndUpdate(
           req.params.id,
-          req.body, 
+          req.body,
           { new: true }
         );
 
@@ -222,14 +222,31 @@ async function run() {
       try {
         const assetId = new ObjectId(req.params.id);
         const deletedAsset = await assetsCollection.deleteOne({ _id: assetId });
-    
+
         if (deletedAsset.deletedCount === 0) {
           return res.status(404).json({ message: "Asset not found" });
         }
-    
+
         res.json({ message: "Asset deleted successfully" });
       } catch (error) {
         res.status(500).json({ error: "Delete failed" });
+      }
+    });
+    // Add assets post
+    app.post("/assets", async (req, res) => {
+      try {
+        const { name, type, quantity } = req.body;
+
+        if (!name || !type || !quantity) {
+          return res.status(400).json({ message: "All fields are required" });
+        }
+
+        const newAsset = { name, type, quantity: parseInt(quantity) };
+        const result = await assetsCollection.insertOne(newAsset);
+
+        res.status(201).json({ message: "Asset added successfully", asset: result });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to add asset" });
       }
     });
 
