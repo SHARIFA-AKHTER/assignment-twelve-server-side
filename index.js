@@ -42,11 +42,66 @@ async function run() {
     const assetsCollection = client.db("ManageMate").collection("assets");
 
     // users related api
+    // app.get("/users", async (req, res) => {
+    //   const result = await userCollection.find().toArray();
+    //   res.send(result);  
+    // });
+    const getNavbar = (user) => {
+      const serviceProviderLogo = "https://i.ibb.co.com/gZR7QnFc/company-logo.png";
+    
+      // Determine the role based on userId (you can modify this logic as needed)
+      if (parseInt(user.userId) === 1) {
+        role = "employee";
+      } else if (parseInt(user.userId) === 2) {
+        role = "hr_manager";
+      } else {
+        role = "guest"; 
+      }
+      // Set the logo based on the role or company
+      const companyLogo = user.company ? `https://i.ibb.co.com/XZc9cpfR/${user.company}-logo-com.jpg` : serviceProviderLogo;
+    
+      // Return the navbar based on the role
+      if (role === "guest") {
+        return { logo: serviceProviderLogo, menu: ["Home", "Join as Employee", "Join as HR Manager", "Login"] };
+      } else if (role === "employee") {
+        return {
+          logo: companyLogo,
+          menu: ["Home", "My Assets", "My Team", "Request for an Asset", "Profile"],
+          user: { name: user.name, profilePicture: user.profilePicture },
+        };
+      } else if (role === "hr_manager") {
+        return {
+          logo: companyLogo,
+          menu: ["Home", "Asset List", "Add an Asset", "All Requests", "My Employee List", "Add an Employee", "Profile"],
+          user: { name: user.name, profilePicture: user.profilePicture },
+        };
+      }
+      return null;
+    };
     app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
+      const userId = parseInt(req.query.userId) || 3;
+      console.log("Requested userId:", userId);
+      try {
+    
+        // Fetch user from DB
+        const user = await userCollection.findOne({ userId: userId });
+    
+        if (!user) {
+          console.log("User not found, returning default guest navbar.");
+          return res.json(getNavbar({ userId: 3, name: "Guest", profilePicture: "", company: null }));
+        }
+    
+        console.log("Fetched User from DB:", user);
+        
+        // Get navbar data
+        const navbar = getNavbar(user);
+        res.json(navbar);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
     });
-
+  
     // Get All Employees
     app.get('/employee', async (req, res) => {
       const result = await employeeCollection.find().toArray();
@@ -99,17 +154,60 @@ async function run() {
       res.send({ message: "Employees added successfully!" });
     });
 
-    //  requests api
+
+    // ✅ Get All Requests (with optional search filter)
     app.get("/requests", async (req, res) => {
-      const result = await requestsCollection.find().toArray();
-      res.send(result);
+      try {
+        const searchQuery = req.query.search || "";
+        const filter = searchQuery
+          ? {
+            $or: [
+              { requesterName: { $regex: searchQuery, $options: "i" } },
+              { requesterEmail: { $regex: searchQuery, $options: "i" } },
+            ],
+          }
+          : {};
+
+        const result = await requestsCollection.find(filter).toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch requests" });
+      }
     });
 
-    app.get("/extra", async (req, res) => {
-      const result = await extraCollection.find().toArray();
-      res.send(result);
+
+    // ✅ Update Request Status
+    app.patch("/requests/:id", async (req, res) => {
+      try {
+        const { status } = req.body;
+        const id = req.params.id;
+
+        const result = await requestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Request not found or update failed" });
+        }
+
+        res.json({ message: `Request ${status} successfully` });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to update request status" });
+      }
     });
 
+
+    // ✅ Add New Request
+    app.post("/requests", async (req, res) => {
+      try {
+        const newRequest = req.body;
+        const result = await requestsCollection.insertOne(newRequest);
+        res.json({ message: "Request added successfully", requestId: result.insertedId });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to add request" });
+      }
+    });
     // Hr-pending
     app.get("/pending", async (req, res) => {
       const result = await pendingCollection.find().toArray();
