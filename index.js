@@ -1,14 +1,20 @@
 const express = require("express");
 const app = express();
 require("dotenv").config();
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 //middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5di9a.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -46,20 +52,23 @@ async function run() {
     //   const result = await userCollection.find().toArray();
     //   res.send(result);  
     // });
+
     const getNavbar = (user) => {
       const serviceProviderLogo = "https://i.ibb.co.com/gZR7QnFc/company-logo.png";
-    
+
+      // Declare role
+      let role;
       // Determine the role based on userId (you can modify this logic as needed)
-      if (parseInt(user.userId) === 1) {
+      if (parseInt(user.userId) === 2) {
         role = "employee";
-      } else if (parseInt(user.userId) === 2) {
+      } else if (parseInt(user.userId) === 3) {
         role = "hr_manager";
       } else {
-        role = "guest"; 
+        role = "guest";
       }
       // Set the logo based on the role or company
       const companyLogo = user.company ? `https://i.ibb.co.com/XZc9cpfR/${user.company}-logo-com.jpg` : serviceProviderLogo;
-    
+
       // Return the navbar based on the role
       if (role === "guest") {
         return { logo: serviceProviderLogo, menu: ["Home", "Join as Employee", "Join as HR Manager", "Login"] };
@@ -79,20 +88,20 @@ async function run() {
       return null;
     };
     app.get("/users", async (req, res) => {
-      const userId = parseInt(req.query.userId) || 3;
+      const userId = parseInt(req.query.userId) || 2;
       console.log("Requested userId:", userId);
       try {
-    
+
         // Fetch user from DB
         const user = await userCollection.findOne({ userId: userId });
-    
+
         if (!user) {
           console.log("User not found, returning default guest navbar.");
           return res.json(getNavbar({ userId: 3, name: "Guest", profilePicture: "", company: null }));
         }
-    
+
         console.log("Fetched User from DB:", user);
-        
+
         // Get navbar data
         const navbar = getNavbar(user);
         res.json(navbar);
@@ -101,7 +110,22 @@ async function run() {
         res.status(500).json({ error: "Internal server error" });
       }
     });
-  
+
+
+    //Auth related apis
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, 'process.env.JWT_SECRET', { expiresIn: '1hr' });
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: false,
+
+        })
+        .send({ success: true });
+    })
+
+
     // Get All Employees
     app.get('/employee', async (req, res) => {
       const result = await employeeCollection.find().toArray();
@@ -133,11 +157,25 @@ async function run() {
       res.send(result);
     });
 
+    // app.delete("/employee/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const result = await employeeCollection.deleteOne({ _id: id });
+    //   res.send(result);
+    // })
     app.delete("/employee/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await employeeCollection.deleteOne({ _id: id });
-      res.send(result);
-    })
+      try {
+        const id = req.params.id;
+        const result = await employeeCollection.deleteOne({ _id: new ObjectId(id) });
+
+        if (result.deletedCount === 1) {
+          res.send({ success: true, message: "Employee deleted successfully" });
+        } else {
+          res.status(404).send({ success: false, message: "Employee not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ success: false, message: "Server error", error });
+      }
+    });
 
     // addEmplyeeFor
     app.get("/unaffiliated-employees", async (req, res) => {
@@ -361,6 +399,15 @@ async function run() {
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
+    });
+
+    app.get("/extra", async (req, res) => {
+      try {
+        const extras = await extraCollection.find().toArray();
+        res.json(extras);
+      } catch (err) {
+        res.status(500).json({ message: "Failed to fetch extra sections", error: err.message });
+      }
     });
 
     // Send a ping to confirm a successful connection
