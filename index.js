@@ -10,7 +10,11 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 //middleware
 app.use(cors({
-  origin: ['http://localhost:5173'],
+  origin: [
+    'http://localhost:5173',
+    'https://assignment-twelve-5e80a.web.app/',
+    'https://assignment-twelve-5e80a.firebaseapp.com/'
+     ],
   credentials: true
 }));
 app.use(express.json());
@@ -59,9 +63,9 @@ async function run() {
       // Declare role
       let role;
       // Determine the role based on userId (you can modify this logic as needed)
-      if (parseInt(user.userId) === 2) {
+      if (parseInt(user.userId) === 1) {
         role = "employee";
-      } else if (parseInt(user.userId) === 3) {
+      } else if (parseInt(user.userId) === 2) {
         role = "hr_manager";
       } else {
         role = "guest";
@@ -157,11 +161,6 @@ async function run() {
       res.send(result);
     });
 
-    // app.delete("/employee/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const result = await employeeCollection.deleteOne({ _id: id });
-    //   res.send(result);
-    // })
     app.delete("/employee/:id", async (req, res) => {
       try {
         const id = req.params.id;
