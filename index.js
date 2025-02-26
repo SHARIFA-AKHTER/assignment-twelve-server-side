@@ -246,10 +246,38 @@ async function run() {
         res.status(500).json({ error: "Failed to add request" });
       }
     });
-    // Hr-pending
+
+    // Fetch Pending Requests
     app.get("/pending", async (req, res) => {
-      const result = await pendingCollection.find().toArray();
-      res.send(result);
+      try {
+        const result = await pendingCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch pending requests" });
+      }
+    });
+
+    // Approve Request
+    app.put("/pending/:id", async (req, res) => {
+      try {
+        const result = await pendingCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: { status: "Approved" } }
+        );
+        res.json({ message: "Request Approved", result });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to approve request" });
+      }
+    });
+
+    // Reject Request (Delete)
+    app.delete("/pending/:id", async (req, res) => {
+      try {
+        await pendingCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ message: "Request Rejected and Deleted Successfully" });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to reject request" });
+      }
     });
 
     // mostRequested
