@@ -12,9 +12,9 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://assignment-twelve-5e80a.web.app/',
-    'https://assignment-twelve-5e80a.firebaseapp.com/'
-     ],
+    'https://assignment-twelve-5e80a.web.app',
+    'https://assignment-twelve-5e80a.firebaseapp.com'
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -48,17 +48,14 @@ async function run() {
       .db("ManageMate")
       .collection("limitedStock");
     const pieChartCollection = client.db("ManageMate").collection("pieChart");
+    const packagesCollection = client.db("ManageMate").collection("packages");
     const birthdaysCollection = client.db("ManageMate").collection("birthdays");
     const assetsCollection = client.db("ManageMate").collection("assets");
+    const useCollection = client.db("ManageMate").collection("user");
 
-    // users related api
-    // app.get("/users", async (req, res) => {
-    //   const result = await userCollection.find().toArray();
-    //   res.send(result);  
-    // });
 
     const getNavbar = (user) => {
-      const serviceProviderLogo = "https://i.ibb.co.com/gZR7QnFc/company-logo.png";
+      const serviceProviderLogo = `https://i.ibb.co.com/gZR7QnFc/company-logo.png`;
 
       // Declare role
       let role;
@@ -92,12 +89,12 @@ async function run() {
       return null;
     };
     app.get("/users", async (req, res) => {
-      const userId = parseInt(req.query.userId) || 2;
+      const userId = parseInt(req.query.userId) || 3;
       console.log("Requested userId:", userId);
       try {
 
         // Fetch user from DB
-        const user = await userCollection.findOne({ userId: userId });
+        const user = await userCollection.findOne({ userId: userId }, { projection: { userId: 1, name: 1, profilePicture: 1, company: 1, role: 1 } });
 
         if (!user) {
           console.log("User not found, returning default guest navbar.");
@@ -115,6 +112,12 @@ async function run() {
       }
     });
 
+
+    app.get('/users/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email });
+      res.send(user); // Must include a `role` field like { role: 'hr' }
+    });
 
     //Auth related apis
     app.post('/jwt', async (req, res) => {
@@ -150,15 +153,31 @@ async function run() {
     });
 
 
-    // Update Employee
+
+
     app.put("/employee/:id", async (req, res) => {
       const id = req.params.id;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ success: false, message: "Invalid ID format" });
+      }
+
       const updatedEmployee = req.body;
-      const result = await employeeCollection.updateOne(
-        { _id: id },
-        { $set: updatedEmployee }
-      );
-      res.send(result);
+
+      try {
+        const result = await employeeCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedEmployee }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ success: false, message: "Employee not found" });
+        }
+
+        res.send({ success: true, message: "Employee updated successfully" });
+      } catch (error) {
+        res.status(500).send({ success: false, message: "Server error", error: error.message });
+      }
     });
 
     app.delete("/employee/:id", async (req, res) => {
@@ -279,6 +298,15 @@ async function run() {
       }
     });
 
+    //Packages get
+    app.get("/packages", async (req, res) => {
+      try {
+        const packages = await packagesCollection.find().toArray();
+        res.json(packages);
+      } catch (err) {
+        res.status(500).json({ message: "Failed to fetch packages" });
+      }
+    });
     // mostRequested
     app.get("/mostRequested", async (req, res) => {
       const result = await mostRequestedCollection.find().toArray();
@@ -437,11 +465,51 @@ async function run() {
       }
     });
 
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+
+    app.get("/user", async (req, res) => {
+      const page = parseInt(req.query._page) || 1;
+      const limit = parseInt(req.query._limit) || 10;
+      const skip = (page - 1) * limit;
+
+      try {
+        const total = await useCollection.countDocuments(); 
+        const users = await useCollection.find().skip(skip).limit(limit).toArray(); 
+        const totalPages = Math.ceil(total / limit); 
+
+        // Success response
+        res.status(200).json({
+          success: true,
+          total,       
+          totalPages,  
+          currentPage: page,
+          users,       
+        });
+      } catch (error) {
+        console.error("Error fetching paginated users:", error);
+        res.status(500).json({
+          success: false,
+          message: "Internal server error while fetching users",
+        });
+      }
+    });
+
+    app.get('/user/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = await useCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(404).send({ error: 'User not found' });
+      }
+
+      res.send({
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        photoURL: user.photoURL,
+        role: user.role, // ✅ MAKE SURE THIS LINE EXISTS
+      });
+    });
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
