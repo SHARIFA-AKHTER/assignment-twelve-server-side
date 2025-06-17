@@ -115,8 +115,16 @@ async function run() {
 
     app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
+      console.log("Requested Email:", email);
+
       const user = await userCollection.findOne({ email });
-      res.send(user); // Must include a `role` field like { role: 'hr' }
+      console.log("Fetched User:", user); 
+
+      if (!user) {
+        return res.status(404).send({ message: "User not found" });
+      }
+
+      res.send(user);
     });
 
     //Auth related apis
@@ -472,17 +480,17 @@ async function run() {
       const skip = (page - 1) * limit;
 
       try {
-        const total = await useCollection.countDocuments(); 
-        const users = await useCollection.find().skip(skip).limit(limit).toArray(); 
-        const totalPages = Math.ceil(total / limit); 
+        const total = await useCollection.countDocuments();
+        const users = await useCollection.find().skip(skip).limit(limit).toArray();
+        const totalPages = Math.ceil(total / limit);
 
         // Success response
         res.status(200).json({
           success: true,
-          total,       
-          totalPages,  
+          total,
+          totalPages,
           currentPage: page,
-          users,       
+          users,
         });
       } catch (error) {
         console.error("Error fetching paginated users:", error);
